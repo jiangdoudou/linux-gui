@@ -1,7 +1,7 @@
 //http://m.blog.csdn.net/blog/A1w0n/37727971   BGRA 
 
 int keyID_parse(void);
-int load_565rle_image(char *fn);
+
 
 
 

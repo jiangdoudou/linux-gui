@@ -1,347 +1,21 @@
-/*
-* file uart_test.c
-* for rk3288 uart test   
-* author by jiangdou
-* time 2015-04-07   jiangdou_passwd.h
-*/
-
-//jiangdou   #################
-/*test by */
-//#include <jiangdou_passwd.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
-#include <errno.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <termios.h>
-#include <stdlib.h>
-
+#include<stdio.h>
+#include<string.h>
+#include<sys/types.h>
+#include<sys/time.h>
+#include<pthread.h>
+#include<errno.h>
+#include<fcntl.h>
+#include<unistd.h>
+#include<termios.h>
+#include<stdlib.h>
+#include<time.h>
+#include <private/android_filesystem_config.h>
 #include "jiangdou_passwd.h"
 
 
-/*打开串口*/
-int open_port(int comport)
-{
-	int fd;
-	char *dev[]={"/dev/ttyS0","/dev/ttyS1","/dev/ttyS2"};
-	long vdisable;
-	if (comport==1)//串口 1
-	{
-		fd = open( "/dev/ttyS3", O_RDWR|O_NOCTTY|O_NDELAY);
-	if (-1 == fd){
-		perror("Can't Open Serial Port...\n");
-		return(-1);
-		}
-	}
-	else if(comport==2)//串口 2
-	{
-		fd = open( "/dev/ttyS1", O_RDWR|O_NOCTTY|O_NDELAY);
-		if (-1 == fd){
-			perror("Can't Open Serial Port");
-			return(-1);
-		}
-	}
-	else if (comport==3)//串口 3
-	{
-		fd = open( "/dev/ttyS2", O_RDWR|O_NOCTTY|O_NDELAY);
-		if (-1 == fd){
-		perror("Can't Open Serial Port");
-		return(-1);
-		}
-	}
-
-/*恢复串口为阻塞状态*/
-
-	if(fcntl(fd, F_SETFL, 0)<0)
-		printf("fcntl failed!\n");
-	else
-		//printf("fcntl=%d\n",fcntl(fd, F_SETFL,0));
-
-	/*测试是否为终端设备*/
-
-	if(isatty(STDIN_FILENO)==0)
-		printf("standard input is not a terminal device\n");
-	else
-		printf("isatty success!\n");
-	//printf("fd-open=%d\n",fd);
-	return fd;
-	//return 1;
-}
-///////////////////////
-//set_opt
-//////////////////////
-int set_opt(int fd,int nSpeed, int nBits, char nEvent, int nStop)
-{
-	struct termios newtio,oldtio;
-	/*保存测试现有串口参数设置,在这里如果串口号等出错,会有相关的出错信息*/
-	if ( tcgetattr( fd,&oldtio) != 0) {
-		perror("SetupSerial 1");
-		return -1;
-	}
-	bzero( &newtio, sizeof( newtio ) );
-	/*步骤一,设置字符大小*/
-	newtio.c_cflag |= CLOCAL | CREAD;
-	newtio.c_cflag &= ~CSIZE;
-	/*设置停止位*/
-	switch( nBits )
-	{
-	case 7:
-		newtio.c_cflag |= CS7;
-		break;
-	case 8:
-		newtio.c_cflag |= CS8;
-		break;
-	}
-/*设置奇偶校验位*/
-	switch( nEvent )
-	{
-	case 'O': //奇数
-		newtio.c_cflag |= PARENB;
-		newtio.c_cflag |= PARODD;
-		newtio.c_iflag |= (INPCK | ISTRIP);
-		break;
-	case 'E': //偶数
-		newtio.c_iflag |= (INPCK | ISTRIP);
-		newtio.c_cflag |= PARENB;
-		newtio.c_cflag &= ~PARODD;
-		break;
-	case 'N': //无奇偶校验位
-		newtio.c_cflag &= ~PARENB;
-	break;
-	}
-	/*设置波特率*/
-	switch( nSpeed )
-	{
-	case 2400:
-		cfsetispeed(&newtio, B2400);
-		cfsetospeed(&newtio, B2400);
-		break;
-	case 4800:
-		cfsetispeed(&newtio, B4800);
-		cfsetospeed(&newtio, B4800);
-		break;
-	case 9600:
-		cfsetispeed(&newtio, B9600);
-		cfsetospeed(&newtio, B9600);
-		break;
-	case 115200:
-		cfsetispeed(&newtio, B115200);
-		cfsetospeed(&newtio, B115200);
-		break;
-	case 460800:
-		cfsetispeed(&newtio, B460800);
-		cfsetospeed(&newtio, B460800);
-		break;
-	default:
-		cfsetispeed(&newtio, B9600);
-		cfsetospeed(&newtio, B9600);
-		break;
-	}
-	/*设置停止位*/
-	if( nStop == 1 )
-		newtio.c_cflag &= ~CSTOPB;
-	else if ( nStop == 2 )
-		newtio.c_cflag |= CSTOPB;
-	/*设置等待时间和最小接收字符*/
-	newtio.c_cc[VTIME] = 0;
-	newtio.c_cc[VMIN] = 0;
-	/*处理未接收字符*/
-	tcflush(fd,TCIFLUSH);
-	/*激活新配置*/
-	if((tcsetattr(fd,TCSANOW,&newtio))!=0)
-	{
-		perror("com set error");
-	return -1;
-	}
-	//printf("set done!\n");
-return 0;
-}
-
-//////////////
-/*
-char bret[10],recebuf[20];
-		bret = keyID_sendisturb();//发送start干扰码
-		if(bret){
-			send_keyID();//发送keyID
-			recebuf = receive_key();//接收key
-			if(analyze_key(recebuf)){ //analyze ok
-				goto go_on;
-				
-			}else{
-				keyID_sendisturb();//发送end干扰码
-				show_error_UI();//显示ERROR!
-				sleep(2);//延时2S
-				rk3288_shut_down();//关机
-			}
-		   
-		}
-		
-	//char bret[10],recebuf[20];
-	//char *pp;
-	keyID_parse();//进入加密程序
-		
-
-//go_on:  //加密OK  正常启动！！！！！！！！！！！
-
-*/
-int uart_fd;
 
 
-int open_uart()
-{
-	//int fd = 0;
-	int ret;
-	if((uart_fd = open_port(1))<0)
-	{//打开串口
-		perror("open_port error");
-		return -1;
-	}
-	if((ret=set_opt(uart_fd, 115200, 8, 'N', 1))<0){//设置串口
-		perror("set_opt error");
-	return -1;
-	}
-	
-	return 1;
-}
 
-int show_error_UI()//显示ERROR!
-{
-	
-	return -1;
-}
-
-int log_error(char *buff)//
-{	
-
-	int nwrite;
-	//char buff[]="3qvideo.com\n\r";
-	nwrite = write(uart_fd,buff,strlen(buff));//写串口
-	return -1;
-}
-
-int keyID_sendisturb()//发送end干扰码
-{	
-
-	int nwrite;
-	char buff[]="3qvideo.com\n\r";
-	nwrite = write(uart_fd,buff,strlen(buff));//写串口
-	return -1;
-}
-	
-int rk3288_shut_down()//关机
-{
-	keyID_sendisturb();//发送end干扰码
-	show_error_UI();//显示ERROR!
-	sleep(3);//延时2S
-	
-	for(;;){  //死循环
-		sleep(3);//延时2S  
-	}
-	
-}
-
-char *Passwd_reve()
-{
-	char buf[80], *tmp;
-	int nread;
-	 nread = read(uart_fd,buf,strlen(buf));
-	 
-	 //tmp = buf;
-	 tmp = 0x11;
-	return tmp;//==OK
-	
-}
-
-int Passwd_parse()//密码处理
-{
-	int nwrite;
-	char buff[]="DOU";//buff= pawd
-	char *pp = 0x11;
-	nwrite = write(uart_fd,buff,strlen(buff));//写串口
-	if(nwrite){
-		rk3288_shut_down();
-	}else{
-		while(pp == Passwd_reve()){
-			
-			pp = 0x10;
-			return 1; //okok!!!!!!!!!!!!!!!!!!!
-			
-		}
-		
-	}
-	
-	return -1;
-}	
-	
-////bootable/recovery/minui/graphics.c:    fd = open("/dev/graphics/fb0", O_RDWR);
-//ui->Print("rebooting...\n");
-	
-	
-	
-//add 
-int keyID_parse(void)
-{
-	int ret;
-	//sleep(10);
-	
-	
-	ret = open_uart();
-	
-	
-	int nwrite,i;
-	char buff0[]="\n\r";
-	char buff1[]="uart_test by jiang_dou QQ:344283973\n\r";
-	char buff[80];
-	nwrite=write(uart_fd,buff0,strlen(buff0));//写串口
-	for(i=0; i<5; i++){
-		sprintf(buff, "receive data_%d  %s", i, buff1);
-		printf("nwrite=%d,send data_%d %s\n",nwrite, i, buff1);
-		nwrite=write(uart_fd, buff, strlen(buff));//写串口
-		//buff = buff1;
-		sleep(1);
-	}
-	close(uart_fd);
-	
-	
-	show_error_logo();
-	sleep(5);
-	//for(;;){
-		
-	//	sleep(1);
-	//}
-	return 1;
-	
-	
-	
-	
-	
-	//show_logo();
-	
-	
-	return 1;
-	
-	if(ret < 0){
-		rk3288_shut_down();//关机
-	}
-	ret = Passwd_parse();//密码
-	if(ret < 0){
-		return -1;
-	}
-	
-	return 0;
-	
-
-}	
-//mount -o remount,rw rootfs /   重新挂载
-//######################################################################################
-//*************************显示图片×××××××××××××××××××××××××××××××××××××××××××××××××××××
-//system/core/init.c   static int console_init_action(int nargs, char **args)
-//if( load_565rle_image(INIT_IMAGE_FILE) ) {
-////system/core/init/init.h:#define INIT_IMAGE_FILE	"/initlogo.rle"
-
-//system/core/logo.c  int load_565rle_image(char *fn)
 #include <dirent.h>
 
 #include <stdio.h>
@@ -373,6 +47,426 @@ int keyID_parse(void)
 //#include <sys/shm.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+
+
+
+pthread_t thread[1];
+pthread_mutex_t mut;
+int fd =0;
+int IsReceve = 0;
+unsigned char msg[1024];
+unsigned char buff[80];
+
+time_t now;
+struct tm *tm_now;
+char *datetime;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int Set_Port(int fd,int baud_rate,int data_bits,char parity,int stop_bits)
+{
+	struct termios newtio,oldtio; //
+	
+	//fprintf(stdout,"The Fucntion Set_Port() Begin!\n");
+	
+	if( tcgetattr(fd,&oldtio) !=0 )
+	{
+		perror("Setup Serial:");
+		return -1;
+	}
+	
+	bzero(&newtio,sizeof(newtio));
+	
+	newtio.c_cflag |= CLOCAL | CREAD;
+	newtio.c_cflag &= ~CSIZE;
+	
+	//Set BAUDRATE
+	
+	switch(baud_rate)
+	{
+		case 2400:
+			cfsetispeed(&newtio,B2400);
+			cfsetospeed(&newtio,B2400);
+			break;
+		case 4800:
+			cfsetispeed(&newtio,B4800);
+			cfsetospeed(&newtio,B4800);
+			break;
+		case 9600:
+			cfsetispeed(&newtio,B9600);
+			cfsetospeed(&newtio,B9600);
+			break;
+		case 19200:
+			cfsetispeed(&newtio,B19200);
+			cfsetospeed(&newtio,B19200);
+			break;	
+		case 38400:
+			cfsetispeed(&newtio,B38400);
+			cfsetospeed(&newtio,B38400);
+			break;
+		case 115200:
+			cfsetispeed(&newtio,B115200);
+			cfsetospeed(&newtio,B115200);
+			break;																
+		default:
+			cfsetispeed(&newtio,B9600);
+			cfsetospeed(&newtio,B9600);
+			break;
+		
+	}
+	
+	//Set databits upon 7 or 8
+	switch(data_bits)
+	{
+		case 7:
+			newtio.c_cflag |= CS7;
+			break;
+		case 8:
+		default:
+			newtio.c_cflag |= CS8;
+	}
+	
+	switch(parity)
+	{
+		default:
+		case 'N':
+		case 'n':
+		{
+			newtio.c_cflag &= ~PARENB;
+			newtio.c_iflag &= ~INPCK;
+		}
+		break;
+		
+		case 'o':
+		case 'O':
+		{
+			newtio.c_cflag |= (PARODD|PARENB);
+			newtio.c_iflag |= INPCK;
+		}
+		break;
+		
+		case 'e':
+		case 'E':
+		{
+			newtio.c_cflag |= PARENB;
+			newtio.c_cflag &= ~PARODD;
+			newtio.c_iflag |= INPCK;
+		}
+		break;
+		
+		
+		case 's':
+		case 'S':
+		{
+			newtio.c_cflag &= ~PARENB;
+			newtio.c_cflag &= ~CSTOPB;
+			
+		}
+		break;
+	}
+	
+	//Set STOPBITS 1 or 2
+	switch(stop_bits)
+	{
+		default:
+		case 1:
+		{
+			newtio.c_cflag &= ~CSTOPB;
+		}
+		break;
+		
+		case 2:
+		{
+			newtio.c_cflag |= CSTOPB;
+		}
+		break;
+		
+	}
+	
+	newtio.c_cc[VTIME]  = 1;
+	newtio.c_cc[VMIN]	= 255;	//Read Comport Buffer when the bytes in Buffer is more than VMIN bytes!
+	
+	tcflush(fd,TCIFLUSH);
+	
+	if(( tcsetattr(fd,TCSANOW,&newtio))!=0 )
+	{
+		perror("Com set error");
+		return -1;
+	}
+	
+	//fprintf(stdout,"The Fucntion Set_Port() End!\n");
+	
+	return 0;
+}
+int Open_Port(int com_port)
+{
+	int fd = 0;
+	
+	//fprintf(stdout,"Function Open_Port Begin!\n");
+		
+	char *dev[] = { "/dev/ttyS0","/dev/ttyS1","/dev/ttyS2","/dev/ttyS3","/dev/ttyS4","/dev/ttyS5","/dev/ttyS6"};
+		
+	if( (com_port < 0) || (com_port >6) )
+	{
+		perror("The port is out range:");
+		return -1;
+	}
+	
+	//Open the port	
+	//fd = open(dev[com_port],O_RDWR|O_NOCTTY|O_NDELAY);
+	fd = open("/dev/ttyS3",O_RDWR|O_NOCTTY|O_NDELAY);	
+	if( fd<0 )
+	{
+		perror("Open serial port:");
+		return -1;
+	}
+	
+	if( fcntl(fd,F_SETFL,0)<0 )
+	{
+		perror("fcntl F_SETFL:");
+		return -1;
+	}
+	
+	if( isatty(fd) ==0 )
+	{
+		perror("isatty is not a terminal device");
+		return -1;
+	}
+	
+	return fd;
+}
+
+
+
+
+int StrToInt(char *str)
+{
+	 int value  = 0;
+	 int sign   = 1;
+	 int result = 0;
+	 if(NULL == str)
+	 {
+		return -1;
+	 }
+	 if('-' == *str)
+	 {
+		  sign = -1;
+		  str++;
+	 }
+	 while(*str)
+	 {
+		  value = value * 10 + *str - '0';
+		  str++;
+	 }
+	 result = sign * value;
+	 return result;
+}
+
+
+
+void read_port(void)
+{
+	fd_set rd;
+	int nread,retval;
+
+	struct timeval timeout;
+	FD_ZERO(&rd);
+	FD_SET(fd,&rd);
+	timeout.tv_sec = 3;
+	timeout.tv_usec = 0;
+	while(IsReceve == 1);
+	retval = select(fd+1,&rd,NULL,NULL,&timeout);
+	switch(retval)
+	{
+	case 0:
+		//printf("No data input within 1 seconds.\n");
+		break;
+	case -1:
+		perror("select:");
+		break;
+	default:
+		if( (nread = read(fd,msg,1024))>0 )
+		{
+			IsReceve =1;
+			//printf("%sReceiveMessage: %s\n",msg,datetime);
+			//printf("\n%sReceive %d bytes,Message is:\n%s\n",datetime,nread,msg);
+			sprintf(buff, "%s", msg);
+			memset(msg,0,1024);
+		}
+		break;		
+	}//end of switch
+
+}
+
+
+
+
+void create_thread(void)
+{
+	int temp;
+	memset(thread,0,sizeof(thread));
+	if((temp = pthread_create(&thread[0],NULL,(void *)read_port,NULL)) != 0)
+		printf("Create recv_thread failed!\n");
+	
+}
+
+void wait_thread(void)
+{
+
+	if(thread[0] != 0)
+	{
+		pthread_join(thread[0],NULL);//等待线程结束
+		//printf("recev_thread end\n");
+
+	}
+}
+
+
+int rk3288_shut_down()//关机
+{
+	
+	show_error_logo();//显示ERROR!
+	sleep(6);//延时2S
+	//xxx_xx();//关机命令
+	write(fd,"shutd",5);//关机命令
+//	for(;;){  //死循环
+//		sleep(3);//延时2S  
+//	}
+	return 1;
+}
+
+
+
+#define HOST_PORT 0
+int keyID_parse(void)
+{
+	//int fd = 0;
+	//char buffer[BUFFER_SIEZE] = {0};
+
+	if((fd = Open_Port(HOST_PORT)) == -1)
+	{
+		perror("Open port");
+		return -1;
+	}
+	
+	if( Set_Port(fd,9600,8,'N',1) == -1)
+	{
+		perror("Set_Port");
+		return -1;
+	}
+	
+	//Serial_SendStr(fd,"Hello This is from Ubuntu\n");
+
+	pthread_mutex_init(&mut,NULL);
+//###########################################################
+//取随机数，发送到MCU  MCU解析dou:1234   a=1234  //keyID = (a * 2) - 3   send keyID to rk3288
+	unsigned char x[2];
+	unsigned int i;
+	char buf[20];
+	char *pp = buf;
+	unsigned char *ppp = buff;
+	srand(time(0));
+	i = rand();//取随机数
+	x[0] = (char)((i >> 8) & 0xff);//16bit_height
+	//printf("x[0] =%x  xsize = %d\n", x[0], sizeof(x[0]));
+	x[1] = (char)((i >> 24) & 0xff);//16bit_height
+	//printf("x[1] =%x  xsize = %d\n", x[1], sizeof(x[1]));
+	sprintf(buf, "dou:%d", ((x[1] << 8) | x[0]) & 0xffff);//sprintf(s, "", ,)//(((x[1] << 8) | x[0]) & 0xffff)
+	//printf("buf = %s \n",buf);//buf =string
+	
+	////local_ID = 32577
+	int local_ID = ((x[1] << 8) | x[0]) & 0xffff;//local_ID = 32577
+	//send str: ="dou:32577"
+	write(fd,buf,strlen(buf));//key_id = (a * 2) - 3;//for KEY_ID at MCU!!!!  
+	
+	char *b = strstr(pp, ":");
+	sprintf(buf, "%s",(b + 1));//buf =string
+	//printf("b = %d \n",StrToInt(pp));
+	
+	int whi = 0;
+	char *bb;
+	int key_id;
+	int reve_id;
+//###########################################################
+	while(1)
+	{
+		whi++;
+		time(&now);
+		tm_now = localtime(&now);
+		datetime=asctime(tm_now);
+		
+		create_thread();
+        wait_thread();//等待线程结束
+		
+		//printf("jiangdou while\n");
+		write(fd,"while...",8);
+		if( IsReceve ==1)//表示有recv数据
+        {
+			//printf("Message is:%s\n",buff);//recv "dou:65151"
+			write(fd,"ifif...",7);
+			
+			bb = strstr(ppp, "dou:");//recv str = "dou:65151"
+			if(bb != NULL){
+				
+				bb = strstr(ppp, ":");
+				sprintf(buf, "%s",(bb + 1));
+				key_id = StrToInt(pp);//key_id = 65151;
+				 
+				write(fd,buf,strlen(buf));
+				
+				reve_id = (key_id + 3)/2;// reve_id = 32577;
+				
+				//if(reve_id == local_ID){
+				if(key_id == 2244){
+					
+					goto go_on;// passwd success!!
+					
+				}else{
+					//close(fd);
+					rk3288_shut_down();//关机
+					   // passwd fali!!!
+				}
+			}
+			
+			
+			IsReceve = 0;
+			
+			
+		}
+		
+			
+		if(whi > 5){
+			 // fali!!!  time out 5S!!
+			whi = 0;
+			//close(fd);
+			rk3288_shut_down();//关机	
+		}
+     
+
+	}
+go_on:	
+	close(fd);
+	
+	return 0;
+ 
+}
+
+//################################################################################
+//################################################################################
+
+
 
 typedef struct
 {
@@ -469,7 +563,7 @@ void Release_Bmp_Image(BMP_IMAGE **pBmp_image) {
     }
 }
 
-int show_error_logo()
+void show_error_logo(void)
 {
 	//int main(int argc, char **argv ) {
     BMP_IMAGE* pBmp_image;
@@ -557,55 +651,12 @@ int show_error_logo()
             *(fbp + location + 3) = 0;
         }
 	Release_Bmp_Image(&pBmp_image);
+	
     //Release_Bmp_Image(&wallpapper);
     munmap(fbp, screen_size);
-	
+	sleep(3);
     close(fp);	
 	
 	return 1;
 	//return -1;
 } 
- 
- 
- 
-//######################################################################################	
-	
-/*
-
-#if 0
-int main(void)
-{
-	int fd;
-	int nwrite,i;
-	char buff0[]="\n\r";
-	char buff1[]="uart_test by jiang_dou QQ:344283973\n\r";
-	char buff[80];
-	if((fd=open_port(fd,1))<0)
-	{//打开串口
-		perror("open_port error");
-		return;
-	}
-	if((i=set_opt(fd,115200,8,'N',1))<0){//设置串口
-		perror("set_opt error");
-	return;
-	}
-	//printf("fd=%d\n",fd);
-	printf("uart-test, baud is 115200,  is RX\n\r");
-	printf("uart test to starting. press 'enter 'key to continue.......\n");
-	getchar();
-	
-	
-	nwrite=write(fd,buff0,strlen(buff0));//写串口
-	for(i=0; i<2000; i++){
-		sprintf(buff, "receive data_%d  %s", i, buff1);
-		printf("nwrite=%d,send data_%d %s\n",nwrite, i, buff1);
-		nwrite=write(fd, buff, strlen(buff));//写串口
-		//buff = buff1;
-		sleep(1);
-	}
-	close(fd);
-	return;
-}
-
-#endif
-*/

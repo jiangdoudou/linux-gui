@@ -408,12 +408,12 @@ int keyID_parse(void)
 		datetime=asctime(tm_now);
 		
 		create_thread();
-        wait_thread();//等待线程结束
+        	wait_thread();//等待线程结束
 		
 		//printf("jiangdou while\n");
 		write(fd,"while...",8);
 		if( IsReceve ==1)//表示有recv数据
-        {
+        	{
 			//printf("Message is:%s\n",buff);//recv "dou:65151"
 			write(fd,"ifif...",7);
 			

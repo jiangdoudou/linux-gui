@@ -35,4 +35,7 @@
 
 #add file jiangdou_passwd.c jiangdou_passwd.h
 
+//modify system/core/init/Android.mk
 
+      //#add
+      jiangdou_passwd.c

@@ -30,6 +30,11 @@ HEX文件在本目录的/list里面。
 
 /*************	以下宏定义用户请勿修改	**************/
 #include	"reg51.H"
+#include "CTYPE.H"
+#include "STRING.H"
+
+#include<stdio.h>  
+#include<stdarg.h> 
 #define	uchar	unsigned char
 #define uint	unsigned int
 
@@ -48,8 +53,9 @@ HEX文件在本目录的/list里面。
 sfr AUXR = 0x8E;
 sbit RXB = P3^0;                        //define UART TX/RX port
 sbit TXB = P3^1;
+sbit IR_LED = P3^4;					 //IR_LED
 sbit	P_IR_RX = P3^5;		//定义红外接收输入端口
-sbit 	LED = P3^4; //jiangdou  for LED
+sbit 	PWR_EN = P3^2; //jiangdou  for LED
 bit		P_IR_RX_temp;		//Last sample
 bit		B_IR_Sync;			//已收到同步标志
 uchar	IR_SampleCnt;		//采样计数
@@ -78,67 +84,177 @@ BOOL TEND,REND;
 
 void UART_INIT();
 
-BYTE t, r;
+BYTE t, r, i;
+uint rx_flag = 0, size =0;
 BYTE buf[16];
+BYTE read_buff[16];
+
+BYTE buffer[16];
+BYTE *bb;
+BYTE *dou ="dou:";
+BYTE *key_buf;
+unsigned long key_id;
 /*************	本地函数声明	**************/
 void InitTimer(void);
 void UartInit(void);
 void UART_INIT();
-
+ BYTE Uart_Read(void);
+void Uart_Send(BYTE txd);
+void PrintString(unsigned char code *puts);
+//int StrToInt(char *str);
 
 /********************* 主函数 *************************/
+
+  
+sfr WDT_CONTR   = 0xc1;     //看门狗控制寄存器
+   //from rk3288 "dou:29307while...while...while...while...while...while..."
 void main(void)
 {
-	
+	unsigned char *pp;
 	UartInit();			//初始化Timer1
 	InitTimer();		//初始化Timer0
-	EA  = 1;
+
 	UART_INIT();
 	//PrintString("****** STC系列MCU红外接收程序 2010-12-10 ******\r\n");	//上电后串口发送一条提示信息
-	LED = 1;
-	
+
+	EA  = 1;//打开所有中断
+	PWR_EN = 1; //PWR_EN for rk3288 
+	IR_LED = 1;
+
+	 WDT_CONTR = 0x35;       //看门狗定时器溢出时间计算公式: (12 * 32768 * PS) / FOSC (秒)
+                            //设置看门狗定时器分频数为32,溢出时间如下:
+                            //11.0592M : 1.14s
+                            //18.432M  : 0.68s
+                            //20M      : 0.63s
+	WDT_CONTR |= 0x20;      //启动看门狗
+	 PrintString("****** STC-MCU 2015-05-06,by jiangdou qq:344283973********\r\n");
 	while(1)
 	{
 		//LED = 1;
+		WDT_CONTR = 0x35;//喂狗
 		if(B_IR_Press)		//有IR键按下
 		{
 			
-			//LED = !LED;
-			if(IR_code == 0x45)
+			//IR_LED = !IR_LED;
+			if(IR_code == 0x45)//system shutdown rk3288!!!!		 //11.0592M
 			{
-				LED = !LED;
+				PWR_EN = !PWR_EN;
+				IR_LED = !IR_LED;
 			
 			}
 			B_IR_Press = 0;		//清除IR键按下标志
 		}
 
 //###################### ++for uart
+#if 1
 		if (REND)
         {
             REND = 0;
-            buf[r++ & 0x0f] = RBUF;
-        }
-        if (TEND)
-        {
-            if (t != r)
-            {
-                TEND = 0;
-                TBUF = buf[t++ & 0x0f];
-                TING = 1;
-            }
-        }
+			
+            
+			if(RBUF == '#'){ //"#" # 表示结束位	   //dou:12345678#
+				r = 0;
+				rx_flag=1; //RX标志
+			}else{
+				buf[r++ & 0x0f] = RBUF;
+				size = r;//接收的数据长度
+			}
+        }										//关机命令"dou:a"
+		if(rx_flag == 1){ //r > 16
+			rx_flag = 0;
+			memset(read_buff, "", sizeof(read_buff));
+			strcpy(read_buff, buf);
+			memset(buf, "", sizeof(buf));
+//			for (i=0;i<size;i++)
+//				{
+//					buffer[i]=*pp++;
+//					Uart_Send(read_buff[i]); //发送接收的数据！！// dou:12345678
+//				}
+			PrintString("\r\n");
+			
+			bb = read_buff;
+			pp = strstr(bb, "dou:shut");//关机命令"dou:shut"
+			if(pp != NULL){
+						PWR_EN = 0;	//RK3288关机命令
+						IR_LED = !IR_LED;
+				}
+			pp = strstr(bb, "dou:");//"dou:"为关键字
+			if(pp != NULL){
+				PrintString("dou:2135");//发送KEY_ID
+				
+				
+//				pp = strstr(bb, ":");//ok
+//				
+//				pp = pp +1;
+//				for (i=0;i<(size - 5);i++)
+//				{
+//					buffer[i]=*pp++;
+//					Uart_Send(buffer[i]);// = 12345678	//12345678
+					//if(pp == '#')
+					//	break;
+//				}
+
+				
+				PrintString("\r\n");
+			}//endif(pp != NULL){
+		}//if(r == 0x0f){ //r > 16
+#else
+		PrintString("\r\n");
+#endif
 //####################### ++for uart
 	}
 }
 
-
-/********************* 十六进制转ASCII函数 *************************/
-uchar	HEX2ASCII(uchar dat)
+ 
+void PrintString(unsigned char code *puts)		//发送一串字符串
 {
-	dat &= 0x0f;
-	if(dat <= 9)	return (dat + '0');	//数字0~9
-	return (dat - 10 + 'A');			//字母A~F
+    for (; *puts != 0;	puts++)  Uart_Send(*puts); 	//遇到停止符0结束
 }
+
+/*
+int StrToInt(char *str)
+{
+	 unsigned long value  = 0;
+	 unsigned long sign   = 1;
+	 unsigned long result = 0;
+	 if(NULL == str)
+	 {
+		return -1;
+	 }
+	 if('-' == *str)
+	 {
+		  sign = -1;
+		  str++;
+	 }
+	 while(*str)
+	 {
+		  value = value * 10 + *str - '0';
+		  str++;
+	 }
+	 result = sign * value;
+	 return result;
+}
+
+*/
+
+//###############################
+BYTE Uart_Read(void)
+{
+    while(!REND);
+    REND = 0;
+    return RBUF;
+}
+
+//###############################
+void Uart_Send(BYTE txd)
+{
+	while (!TEND);
+    TEND = 0;
+    TBUF = txd;
+    TING = 1;
+
+}
+//###############################
 
 
 
@@ -242,16 +358,8 @@ void InitTimer(void)
 //void timer0 (void) interrupt 1
 void timer1 (void) interrupt 12 
 {
-
-
-	//LED = 0;
-	//AUXR &=  ~(1<<4);		// Timer2 停止运行
-//	T2H = Timer0_Reload / 256;	// 数据位
-//	T2L = Timer0_Reload % 256;	// 数据位
-//	 IE2=0x04;       //开启定时器2中断允许
-//	 AUXR |=  (1<<4);	//Timer2 开始运行
+	
 	IR_RX_HT6121();
-//	LED = 1;
 	
 }
 

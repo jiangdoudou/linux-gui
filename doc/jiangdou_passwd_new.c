@@ -1,3 +1,11 @@
+/*
+*file jiangdou_passwd.c
+*time 2015-05-01
+*
+*author by jiangdou QQ:344283973
+*
+*/
+
 #include<stdio.h>
 #include<string.h>
 #include<sys/types.h>

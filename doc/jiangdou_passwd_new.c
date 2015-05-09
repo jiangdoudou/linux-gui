@@ -6,21 +6,20 @@
 *
 */
 
-#include<stdio.h>
-#include<string.h>
-#include<sys/types.h>
-#include<sys/time.h>
-#include<pthread.h>
-#include<errno.h>
-#include<fcntl.h>
-#include<unistd.h>
-#include<termios.h>
-#include<stdlib.h>
-#include<time.h>
-#include <private/android_filesystem_config.h>
+//#include<stdio.h>
+//#include<string.h>
+//#include<sys/types.h>
+//#include<sys/time.h>
+//#include<pthread.h>
+//#include<errno.h>
+//#include<fcntl.h>
+//#include<unistd.h>
+//#include<termios.h>
+//#include<stdlib.h>
+//#include<time.h>
+//#include <private/android_filesystem_config.h>
+
 #include "jiangdou_passwd.h"
-
-
 
 
 
@@ -62,24 +61,12 @@ pthread_t thread[1];
 pthread_mutex_t mut;
 int fd =0;
 int IsReceve = 0;
-unsigned char msg[1024];
-unsigned char buff[80];
+unsigned char msg[80];
+char buff[80];
 
 time_t now;
 struct tm *tm_now;
 char *datetime;
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -310,8 +297,8 @@ void read_port(void)
 			IsReceve =1;
 			//printf("%sReceiveMessage: %s\n",msg,datetime);
 			//printf("\n%sReceive %d bytes,Message is:\n%s\n",datetime,nread,msg);
-			sprintf(buff, "%s", msg);
-			memset(msg,0,1024);
+			sprintf(buff, "%s", msg);//warning   去掉unsigned char buff[80] ->char buff[80]
+			memset(msg,0,80);
 		}
 		break;		
 	}//end of switch
@@ -348,7 +335,7 @@ int rk3288_shut_down()//关机
 	show_error_logo();//显示ERROR!
 	sleep(6);//延时2S
 	//xxx_xx();//关机命令
-	write(fd,"dou:shut#",9);//关机命令"dou:shut#"
+	write(fd,"dou:shut#",9);//关机命令======="dou:shut#"
 //	for(;;){  //死循环
 //		sleep(3);//延时2S  
 //	}
@@ -358,10 +345,11 @@ int rk3288_shut_down()//关机
 
 
 #define HOST_PORT 0
-int keyID_parse(void)
+
+//void keyID_parse()
+int keyid_parse(void)
 {
-	//int fd = 0;
-	//char buffer[BUFFER_SIEZE] = {0};
+	
 
 	if((fd = Open_Port(HOST_PORT)) == -1)
 	{
@@ -384,7 +372,7 @@ int keyID_parse(void)
 	unsigned int i;
 	char buf[20];
 	char *pp = buf;
-	unsigned char *ppp = buff;
+	char *ppp = buff;// ->unsigned
 	srand(time(0));
 	i = rand();//取随机数
 	x[0] = (char)((i >> 8) & 0xff);//16bit_height
@@ -397,20 +385,22 @@ int keyID_parse(void)
 	////local_ID = 32577
 	int local_ID = ((x[1] << 8) | x[0]) & 0xffff;//local_ID = 32577
 	//send str: ="dou:32577"
-	write(fd,buf,strlen(buf));//key_id = (a * 2) - 3;//for KEY_ID at MCU!!!!  
+	//write(fd,buf,strlen(buf));//key_id = (a * 2) - 3;//for KEY_ID at MCU!!!!  
 	//write(fd,"dou:7891#",9);//key_id = (a * 2) - 3;//for KEY_ID at MCU!!!!
-	char *b = strstr(pp, ":");
-	sprintf(buf, "%s",(b + 1));//buf =string
+	//char *b = strstr(pp, ":");
+	//sprintf(buf, "%s",(b + 1));//buf =string
 	//printf("b = %d \n",StrToInt(pp));
 	
 	int whi = 0;
 	char *bb;
 	int key_id;
 	int reve_id;
+	unsigned int send_dou = 0;
 //###########################################################
 	while(1)
 	{
 		whi++;
+		send_dou++;
 		time(&now);
 		tm_now = localtime(&now);
 		datetime=asctime(tm_now);
@@ -420,6 +410,8 @@ int keyID_parse(void)
 		
 		//printf("jiangdou while\n");
 		//write(fd,"while...",8);
+		usleep(100);//毫秒延时
+		write(fd,buf,strlen(buf));//key_id = "dou:1234#" 
 		if( IsReceve ==1)//表示有recv数据
         {
 			//printf("Message is:%s\n",buff);//recv "dou:65151"
@@ -444,8 +436,13 @@ int keyID_parse(void)
 					
 				}else{
 					//close(fd);
-					rk3288_shut_down();//关机
+					;
+					if(send_dou > 5){
+						rk3288_shut_down();//关机
 					   // passwd fali!!!
+					
+					}
+					
 				}
 			}
 			
@@ -523,23 +520,23 @@ BMP_IMAGE* ReadBmp2Buf(char* bmp_file) {
     int width,height,bit_count;
     fp = fopen( bmp_file, "rb" );
     if (fp == NULL) {
-        return -1;
+        return NULL;
     }
     rc = fread( &FileHead, 1, sizeof(BITMAPFILEHEADER), fp );
     if ( rc != sizeof( BITMAPFILEHEADER ) ) {
         fclose( fp );
-        return -1;
+        return NULL;
     }
 
     if (memcmp(FileHead.cfType, "BM", 2) != 0) {
         fclose( fp );
-        return -1;
+        return NULL;
     }
 
     rc = fread( (char *)&InfoHead, 1, sizeof(BITMAPINFOHEADER), fp );
     if ( rc != sizeof(BITMAPINFOHEADER) ) {
         fclose( fp );
-       return -1;
+       return NULL;
     }
     width = InfoHead.ciWidth;
     height = InfoHead.ciHeight;
@@ -547,7 +544,7 @@ BMP_IMAGE* ReadBmp2Buf(char* bmp_file) {
 
     printf("%d %d %d\n", width, height, bit_count);
     if( bit_count != 24) {
-        return -1;
+        return NULL;
     }
     int lineByte = (width * bit_count + 31 ) / 32 *4;
     int size = lineByte * height;
@@ -572,7 +569,7 @@ void Release_Bmp_Image(BMP_IMAGE **pBmp_image) {
     }
 }
 
-void show_error_logo(void)
+int show_error_logo(void)
 {
 	//int main(int argc, char **argv ) {
     BMP_IMAGE* pBmp_image;
@@ -587,7 +584,7 @@ void show_error_logo(void)
 
     long screen_size = 0;
     char *fbp = NULL;
-    int x= 0, y= 0;
+    unsigned int x= 0, y= 0;
     long location = 0;
 
     float vx = 0.0f,vy = 0.0f;
@@ -628,11 +625,11 @@ void show_error_logo(void)
     //    screen_size = vinfo.xres * vinfo.yres * vinfo.bits_per_pixel / 8;
     fbp = (char*) mmap(0, screen_size, PROT_READ | PROT_WRITE, MAP_SHARED, fp, 0);
 
-    if( fbp == -1 ){
+    if(fbp == NULL){
         printf("Error : fail to map framebuffer\n");
         close(fp);
     }
-    for(y = 0 ; y < vinfo.yres; ++y) {  ////背景黑色
+    for(y = 0; y < vinfo.yres; ++y) {  ////背景黑色
         for(x = 0 ; x < vinfo.xres; ++x ) {
             location = x *(vinfo.bits_per_pixel / 8 )  + y * finfo.line_length ;//location为显示区域起始位置
             *(fbp + location) = 0;       //->B      //背景黑色

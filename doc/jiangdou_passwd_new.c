@@ -349,7 +349,7 @@ int rk3288_shut_down()//关机
 //void keyID_parse()
 int keyid_parse(void)
 {
-	
+	int j = 0;
 
 	if((fd = Open_Port(HOST_PORT)) == -1)
 	{
@@ -371,7 +371,9 @@ int keyid_parse(void)
 	unsigned char x[2];
 	unsigned int i;
 	char buf[20];
-	char *pp = buf;
+	int local_ID;
+	char read_buf[20];
+	char *pp = read_buf;
 	char *ppp = buff;// ->unsigned
 	srand(time(0));
 	i = rand();//取随机数
@@ -379,17 +381,31 @@ int keyid_parse(void)
 	//printf("x[0] =%x  xsize = %d\n", x[0], sizeof(x[0]));
 	x[1] = (char)((i >> 24) & 0xff);//16bit_height
 	//printf("x[1] =%x  xsize = %d\n", x[1], sizeof(x[1]));
-	sprintf(buf, "dou:%d#", ((x[1] << 8) | x[0]) & 0xffff);//sprintf(s, "", ,)//(((x[1] << 8) | x[0]) & 0xffff)
+	sprintf(buf, "dou:%d#\r", ((x[1] << 8) | x[0]) & 0xffff);//sprintf(s, "", ,)//(((x[1] << 8) | x[0]) & 0xffff)
 	//printf("buf = %s \n",buf);//buf =string
 	
 	////local_ID = 32577
-	int local_ID = ((x[1] << 8) | x[0]) & 0xffff;//local_ID = 32577
-	//send str: ="dou:32577"
-	//write(fd,buf,strlen(buf));//key_id = (a * 2) - 3;//for KEY_ID at MCU!!!!  
-	//write(fd,"dou:7891#",9);//key_id = (a * 2) - 3;//for KEY_ID at MCU!!!!
-	//char *b = strstr(pp, ":");
-	//sprintf(buf, "%s",(b + 1));//buf =string
-	//printf("b = %d \n",StrToInt(pp));
+	local_ID = ((x[1] << 8) | x[0]) & 0xffff;//local_ID = 32577
+	if ( 2*local_ID > 65535 ) //
+		{
+			for(j = 0; j < 1000; j++ ){
+				 i = rand();//取随机数
+				//if()
+				x[0] = (char)((i >> 8) & 0xff);//16bit_height
+				//printf("x[0] =%x  xsize = %d\n", x[0], sizeof(x[0]));
+				x[1] = (char)((i >> 24) & 0xff);//16bit_height
+				//printf("x[1] =%x  xsize = %d\n", x[1], sizeof(x[1]));
+				sprintf(buf, "dou:%d#\r", ((x[1] << 8) | x[0]) & 0xffff);//sprintf(s, "", ,)//(((x[1] << 8) | x[0]) & 0xffff)
+				//printf("buf = %s \n",buf);//buf =string
+				local_ID = ((x[1] << 8) | x[0]) & 0xffff;//local_ID = 32577
+				if(2*local_ID < 65535)
+					j = 2000;
+				
+			}
+			
+			
+			
+		}
 	
 	int whi = 0;
 	char *bb;
@@ -410,7 +426,7 @@ int keyid_parse(void)
 		
 		//printf("jiangdou while\n");
 		//write(fd,"while...",8);
-		usleep(100);//毫秒延时
+		usleep(3000);//毫秒延时
 		write(fd,buf,strlen(buf));//key_id = "dou:1234#" 
 		if( IsReceve ==1)//表示有recv数据
         {
@@ -421,16 +437,16 @@ int keyid_parse(void)
 			if(bb != NULL){
 				
 				bb = strstr(ppp, ":");
-				sprintf(buf, "%s",(bb + 1));
+				sprintf(read_buf, "%s",(bb + 1));
 				key_id = StrToInt(pp);//key_id = 65151;
 				 
-				write(fd,buf,strlen(buf));//发送key_id //2135
-				sprintf(buf, "key_id=%d",key_id);
-				write(fd,buf,strlen(buf));//发送key_id  key_id=21310812
-				//reve_id = (key_id + 3)/2;// reve_id = 32577;
+				//write(fd,buf,strlen(buf));//发送key_id //2135
+				//sprintf(buf, "key_id=%d",key_id);
+				//write(fd,buf,strlen(buf));//发送key_id  key_id=21310812
+				reve_id = (key_id + 3)/2;// reve_id = 32577;
 				
-				//if(reve_id == local_ID){
-				if(key_id == 213112){////"dou:2135\r\n");//收到KEY_ID
+				if(reve_id == local_ID){
+				//if(key_id == 2135){////"dou:2135\r\n");//收到KEY_ID
 					
 					goto go_on;// passwd success!!
 					

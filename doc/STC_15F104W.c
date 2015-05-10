@@ -192,8 +192,8 @@ void main(void)
 				//	for(j = 0; j < size; j++)
 				//		   Uart_Send(buf[j]); //dou:3271
 					a = 0;
-					for(j = 5; j < size  ; j++){   //接收OK:  ==5!!!!
-						a = a*10 + buf[j] - '0';  //转换失败！！==OK
+					for(j = 5; j < size  ; j++){   //
+						a = a*10 + buf[j] - '0';  //string -> int   字符串转整数int
 					//	Uart_Send(buf[j]);
 				  	  }
 					a = (a * 2) - 3; //

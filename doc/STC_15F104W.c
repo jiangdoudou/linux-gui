@@ -101,6 +101,7 @@ void UART_INIT();
  BYTE Uart_Read(void);
 void Uart_Send(BYTE txd);
 void PrintString(unsigned char code *puts);
+void int2str(unsigned int number);
 //int StrToInt(char *str);
 
 /********************* 主函数 *************************/
@@ -111,6 +112,10 @@ sfr WDT_CONTR   = 0xc1;     //看门狗控制寄存器
 void main(void)
 {
 	unsigned char *pp;
+	// unsigned int a =0;
+
+	unsigned int a = 0;	//16bit
+    unsigned int j =0, k = 0;
 	UartInit();			//初始化Timer1
 	InitTimer();		//初始化Timer0
 
@@ -146,7 +151,7 @@ void main(void)
 		}
 
 //###################### ++for uart
-#if 1
+
 		if (REND)
         {
             REND = 0;
@@ -155,23 +160,24 @@ void main(void)
 			if(RBUF == '#'){ //"#" # 表示结束位	   //dou:12345678#
 				r = 0;
 				rx_flag=1; //RX标志
+				
 			}else{
 				buf[r++ & 0x0f] = RBUF;
 				size = r;//接收的数据长度
 			}
-        }										//关机命令"dou:a"
-		if(rx_flag == 1){ //r > 16
+        }	
+		
+		if(rx_flag == 1){ //
 			rx_flag = 0;
-			memset(read_buff, "", sizeof(read_buff));
-			strcpy(read_buff, buf);
-			memset(buf, "", sizeof(buf));
-//			for (i=0;i<size;i++)
-//				{
-//					buffer[i]=*pp++;
-//					Uart_Send(read_buff[i]); //发送接收的数据！！// dou:12345678
-//				}
-			PrintString("\r\n");
-			
+			//memset(read_buff, "", sizeof(read_buff));
+			for(i =0; i < 16; i++)
+					read_buff[i] = '0';
+			//strcpy(read_buff, buf);
+			for(i =0; i < size; i++)
+					read_buff[i] = buf[i];
+			//memset(buf, "", sizeof(buf));
+			//for(i =0; i < 16; i++)
+			//		buf[i] = '0';			
 			bb = read_buff;
 			pp = strstr(bb, "dou:shut");//关机命令"dou:shut"
 			if(pp != NULL){
@@ -179,63 +185,102 @@ void main(void)
 						IR_LED = !IR_LED;
 				}
 			pp = strstr(bb, "dou:");//"dou:"为关键字
-			if(pp != NULL){
-				PrintString("dou:2135");//发送KEY_ID
-				
-				
-//				pp = strstr(bb, ":");//ok
-//				
-//				pp = pp +1;
-//				for (i=0;i<(size - 5);i++)
-//				{
-//					buffer[i]=*pp++;
-//					Uart_Send(buffer[i]);// = 12345678	//12345678
-					//if(pp == '#')
-					//	break;
-//				}
 
-				
-				PrintString("\r\n");
+			if(pp != NULL){									// send = "dou:3271#"
+				//	PrintString("size:");int2str(size);	//buf = "dou:3271"  size =9	
+				//	PrintString("=");
+				//	for(j = 0; j < size; j++)
+				//		   Uart_Send(buf[j]); //dou:3271
+					a = 0;
+					for(j = 5; j < size  ; j++){   //接收OK:  ==5!!!!
+						a = a*10 + buf[j] - '0';  //转换失败！！==OK
+					//	Uart_Send(buf[j]);
+				  	  }
+					a = (a * 2) - 3; //
+					buf[0] = 'd';
+					buf[1] = 'o';
+					buf[2] = 'u';
+					buf[3] = ':';
+				//	PrintString("=");
+				//	int2str(a);
+				//	PrintString("=");
+					//a = 7881;
+					for(j = 0; j < 4; j++)
+						   Uart_Send(buf[j]);
+					int2str(a);	   // dou:24687
+					size =0;
+					
+					for(i =0; i < 16; i++)
+						buf[i] = '0';		
 			}//endif(pp != NULL){
 		}//if(r == 0x0f){ //r > 16
-#else
-		PrintString("\r\n");
-#endif
+
 //####################### ++for uart
 	}
 }
 
- 
+
+void int2str(unsigned int number) //OK!!!!
+{
+      unsigned int i;
+      unsigned int nTmp;
+
+     //感觉这写法怪怪的吗？干嘛不for(i=1;i<5;i++) 因为这样不需要使用库函数pow()
+     for(i=10000;i>=1;i=i/10)
+
+      {
+            nTmp = number/i;
+            if(nTmp >=1 ) 
+				Uart_Send((unsigned char)(nTmp%10 + 0x30));
+				//Uart_Send((unsigned char)(nTmp%10 + '0'));
+			   //tmpbuf[]
+      }
+}	 
+
+/*
+
+	unsigned long a = 0;
+   unsigned int j =0, k = 0;
+   for(j = 0; j <size - 3; j++)
+   	//a = a + (unsigned int)buf[j];
+	a = a*10 + buf[j] - '0';
+	
+0~10间的数字，可以这样
+
+int   a   =   1; 
+char   b; 
+b   =   '0 '   +   a;	
+
+
+// 向串口发送一个整数，支持0-65535,如 uint=8189,发送的是'8'  '1'  '8'  '9' 
+unsigned char tmpbuf[];
+void int2str(unsigned int number)
+{
+      unsigned int i;
+      unsigned int nTmp;
+
+     //感觉这写法怪怪的吗？干嘛不for(i=1;i<5;i++) 因为这样不需要使用库函数pow()
+     for(i=10000;i>=1;i=i/10)
+
+      {
+            nTmp = number/i;
+            if(nTmp >=1 ) 
+				Uart_Send((unsigned char)(nTmp%10 + 0x30));
+			   //tmpbuf[]
+      }
+}	 
+
+
+
+
+*/
+
+
 void PrintString(unsigned char code *puts)		//发送一串字符串
 {
     for (; *puts != 0;	puts++)  Uart_Send(*puts); 	//遇到停止符0结束
 }
 
-/*
-int StrToInt(char *str)
-{
-	 unsigned long value  = 0;
-	 unsigned long sign   = 1;
-	 unsigned long result = 0;
-	 if(NULL == str)
-	 {
-		return -1;
-	 }
-	 if('-' == *str)
-	 {
-		  sign = -1;
-		  str++;
-	 }
-	 while(*str)
-	 {
-		  value = value * 10 + *str - '0';
-		  str++;
-	 }
-	 result = sign * value;
-	 return result;
-}
-
-*/
 
 //###############################
 BYTE Uart_Read(void)

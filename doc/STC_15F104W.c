@@ -135,7 +135,7 @@ void main(void)
 	 PrintString("****** STC-MCU 2015-05-06,by jiangdou qq:344283973********\r\n");
 	while(1)
 	{
-		//LED = 1;
+		
 		WDT_CONTR = 0x35;//喂狗
 		if(B_IR_Press)		//有IR键按下
 		{
@@ -186,7 +186,7 @@ void main(void)
 				}
 			pp = strstr(bb, "dou:");//"dou:"为关键字
 
-			if(pp != NULL){									// send = "dou:3271#"
+			if(pp != NULL){						// send = "dou:3271#"
 				//	PrintString("size:");int2str(size);	//buf = "dou:3271"  size =9	
 				//	PrintString("=");
 				//	for(j = 0; j < size; j++)
@@ -204,10 +204,9 @@ void main(void)
 				//	PrintString("=");
 				//	int2str(a);
 				//	PrintString("=");
-					//a = 7881;
 					for(j = 0; j < 4; j++)
 						   Uart_Send(buf[j]);
-					int2str(a);	   // dou:24687
+					int2str(a);	   
 					size =0;
 					
 					for(i =0; i < 16; i++)
@@ -220,7 +219,7 @@ void main(void)
 }
 
 
-void int2str(unsigned int number) //OK!!!!
+void int2str(unsigned int number) //OK!!!!  整数转char
 {
       unsigned int i;
       unsigned int nTmp;

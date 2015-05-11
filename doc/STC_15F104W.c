@@ -30,11 +30,11 @@ HEX文件在本目录的/list里面。
 
 /*************	以下宏定义用户请勿修改	**************/
 #include	"reg51.H"
-#include "CTYPE.H"
-#include "STRING.H"
-
-#include<stdio.h>  
-#include<stdarg.h> 
+//#include "CTYPE.H"
+#include "STRING.H"	   //for strstr();
+#include "intrins.h"   //for _nop_();
+//#include<stdio.h>  
+//#include<stdarg.h> 
 #define	uchar	unsigned char
 #define uint	unsigned int
 
@@ -103,12 +103,32 @@ void Uart_Send(BYTE txd);
 void PrintString(unsigned char code *puts);
 void int2str(unsigned int number);
 //int StrToInt(char *str);
+ void Delay800ms();
 
-/********************* 主函数 *************************/
 
   
 sfr WDT_CONTR   = 0xc1;     //看门狗控制寄存器
-   //from rk3288 "dou:29307while...while...while...while...while...while..."
+ 
+void Delay800ms()		//@11.0592MHz
+{
+	unsigned char i, j, k;
+
+	;//_nop_();
+	_nop_();
+	i = 34;
+	j = 159;
+	k = 59;
+	do
+	{
+		do
+		{
+			while (--k);
+		} while (--j);
+	} while (--i);
+}
+
+
+/********************* 主函数 *************************/
 void main(void)
 {
 	unsigned char *pp;
@@ -135,7 +155,7 @@ void main(void)
 	 PrintString("****** STC-MCU 2015-05-06,by jiangdou qq:344283973********\r\n");
 	while(1)
 	{
-		
+		//LED = 1;
 		WDT_CONTR = 0x35;//喂狗
 		if(B_IR_Press)		//有IR键按下
 		{
@@ -179,21 +199,30 @@ void main(void)
 			//for(i =0; i < 16; i++)
 			//		buf[i] = '0';			
 			bb = read_buff;
+
 			pp = strstr(bb, "dou:shut");//关机命令"dou:shut"
 			if(pp != NULL){
 						PWR_EN = 0;	//RK3288关机命令
 						IR_LED = !IR_LED;
 				}
+
+			pp = strstr(bb, "dou:rebo");//reboot命令"dou:rebo#"
+			if(pp != NULL){
+						PWR_EN = 0;	//RK3288关机命令
+						Delay800ms();//延时800毫秒
+						PWR_EN = 1;	//RK3288关机命令
+						//IR_LED = !IR_LED;
+				}
 			pp = strstr(bb, "dou:");//"dou:"为关键字
 
-			if(pp != NULL){						// send = "dou:3271#"
+			if(pp != NULL){									// send = "dou:3271#"
 				//	PrintString("size:");int2str(size);	//buf = "dou:3271"  size =9	
 				//	PrintString("=");
 				//	for(j = 0; j < size; j++)
 				//		   Uart_Send(buf[j]); //dou:3271
 					a = 0;
-					for(j = 5; j < size  ; j++){   //
-						a = a*10 + buf[j] - '0';  //string -> int   字符串转整数int
+					for(j = 5; j < size  ; j++){   //接收OK:  ==5!!!!
+						a = a*10 + buf[j] - '0';  //转换失败！！==OK
 					//	Uart_Send(buf[j]);
 				  	  }
 					a = (a * 2) - 3; //
@@ -204,9 +233,10 @@ void main(void)
 				//	PrintString("=");
 				//	int2str(a);
 				//	PrintString("=");
+					//a = 7881;
 					for(j = 0; j < 4; j++)
 						   Uart_Send(buf[j]);
-					int2str(a);	   
+					int2str(a);	   // dou:24687
 					size =0;
 					
 					for(i =0; i < 16; i++)
@@ -219,7 +249,7 @@ void main(void)
 }
 
 
-void int2str(unsigned int number) //OK!!!!  整数转char
+void int2str(unsigned int number) //OK!!!!
 {
       unsigned int i;
       unsigned int nTmp;
@@ -501,4 +531,3 @@ void UART_INIT()
     TCNT = 0;
     RCNT = 0;
 }
-

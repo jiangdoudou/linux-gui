@@ -64,20 +64,9 @@ ADD file  jiangdou_reboot.c
 #include <cutils/android_reboot.h>
 
 
-pthread_t thread[1];
-pthread_mutex_t mut;
-int fd =0;
-int IsReceve = 0;
-unsigned char msg[80];
-char buff[80];
-
-time_t now;
-struct tm *tm_now;
-char *datetime;
-
 #define HOST_PORT 0
 
-int Set_Port(int fd,int baud_rate,int data_bits,char parity,int stop_bits)
+int Set_Port_dou(int fd,int baud_rate,int data_bits,char parity,int stop_bits)
 {
 	struct termios newtio,oldtio; //
 	
@@ -85,7 +74,7 @@ int Set_Port(int fd,int baud_rate,int data_bits,char parity,int stop_bits)
 	
 	if( tcgetattr(fd,&oldtio) !=0 )
 	{
-		perror("Setup Serial:");
+		//perror("Setup Serial:");
 		return -1;
 	}
 	
@@ -204,7 +193,7 @@ int Set_Port(int fd,int baud_rate,int data_bits,char parity,int stop_bits)
 	
 	if(( tcsetattr(fd,TCSANOW,&newtio))!=0 )
 	{
-		perror("Com set error");
+		//perror("Com set error");
 		return -1;
 	}
 	
@@ -212,13 +201,13 @@ int Set_Port(int fd,int baud_rate,int data_bits,char parity,int stop_bits)
 	
 	return 0;
 }
-int Open_Port(int com_port)
+int Open_Port_dou(int com_port)
 {
 	int fd = 0;
 	
 	//fprintf(stdout,"Function Open_Port Begin!\n");
 		
-	char *dev[] = { "/dev/ttyS0","/dev/ttyS1","/dev/ttyS2","/dev/ttyS3","/dev/ttyS4","/dev/ttyS5","/dev/ttyS6"};
+	//char *dev[] = { "/dev/ttyS0","/dev/ttyS1","/dev/ttyS2","/dev/ttyS3","/dev/ttyS4","/dev/ttyS5","/dev/ttyS6"};
 		
 	if( (com_port < 0) || (com_port >6) )
 	{
@@ -231,19 +220,19 @@ int Open_Port(int com_port)
 	fd = open("/dev/ttyS3",O_RDWR|O_NOCTTY|O_NDELAY);	
 	if( fd<0 )
 	{
-		perror("Open serial port:");
+		//perror("Open serial port:");
 		return -1;
 	}
 	
 	if( fcntl(fd,F_SETFL,0)<0 )
 	{
-		perror("fcntl F_SETFL:");
+		//perror("fcntl F_SETFL:");
 		return -1;
 	}
 	
 	if( isatty(fd) ==0 )
 	{
-		perror("isatty is not a terminal device");
+		//perror("isatty is not a terminal device");
 		return -1;
 	}
 	
@@ -251,24 +240,19 @@ int Open_Port(int com_port)
 }
 
 
-
-
-
-
-
-
 int recovery_reboot(void)
 //int main(void)
-{
+{	
+	int fd =0;
 	int j = 0;
 	char buf[] = "dou:rebo#";
-	if((fd = Open_Port(HOST_PORT)) == -1)
+	if((fd = Open_Port_dou(HOST_PORT)) == -1)
 	{
 		perror("Open port");
 		return -1;
 	}
 	
-	if( Set_Port(fd,9600,8,'N',1) == -1)
+	if( Set_Port_dou(fd,9600,8,'N',1) == -1)
 	{
 		perror("Set_Port");
 		return -1;
@@ -284,3 +268,4 @@ int recovery_reboot(void)
 	return 0;
 	
 }
+

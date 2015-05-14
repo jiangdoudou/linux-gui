@@ -53,6 +53,7 @@ HEX文件在本目录的/list里面。
 sfr AUXR = 0x8E;
 sbit RXB = P3^0;                        //define UART TX/RX port
 sbit TXB = P3^1;
+sbit POWER_ON = P3^3; //for rk3288 power 	
 sbit IR_LED = P3^4;					 //IR_LED
 sbit	P_IR_RX = P3^5;		//定义红外接收输入端口
 sbit 	PWR_EN = P3^2; //jiangdou  for LED
@@ -103,21 +104,20 @@ void Uart_Send(BYTE txd);
 void PrintString(unsigned char code *puts);
 void int2str(unsigned int number);
 //int StrToInt(char *str);
- void Delay800ms();
-
+void Delay100ms();
 
   
 sfr WDT_CONTR   = 0xc1;     //看门狗控制寄存器
  
-void Delay800ms()		//@11.0592MHz
+void Delay100ms()		//@11.0592MHz
 {
 	unsigned char i, j, k;
 
-	;//_nop_();
 	_nop_();
-	i = 34;
-	j = 159;
-	k = 59;
+	_nop_();
+	i = 5;
+	j = 52;
+	k = 195;
 	do
 	{
 		do
@@ -126,7 +126,6 @@ void Delay800ms()		//@11.0592MHz
 		} while (--j);
 	} while (--i);
 }
-
 
 /********************* 主函数 *************************/
 void main(void)
@@ -138,45 +137,59 @@ void main(void)
     unsigned int j =0, k = 0;
 	UartInit();			//初始化Timer1
 	InitTimer();		//初始化Timer0
-
 	UART_INIT();
 	//PrintString("****** STC系列MCU红外接收程序 2010-12-10 ******\r\n");	//上电后串口发送一条提示信息
-
 	EA  = 1;//打开所有中断
 	PWR_EN = 1; //PWR_EN for rk3288 
-	IR_LED = 1;
+	//IR_LED = 1;
+	WDT_CONTR = 0x35;       //看门狗定时器溢出时间计算公式: (12 * 32768 * PS) / FOSC (秒)
+    WDT_CONTR |= 0x20;      //启动看门狗
+	//PrintString("****** STC-MCU 2015-05-06,by jiangdou qq:344283973********\r\n");
 
-	 WDT_CONTR = 0x35;       //看门狗定时器溢出时间计算公式: (12 * 32768 * PS) / FOSC (秒)
-                            //设置看门狗定时器分频数为32,溢出时间如下:
-                            //11.0592M : 1.14s
-                            //18.432M  : 0.68s
-                            //20M      : 0.63s
-	WDT_CONTR |= 0x20;      //启动看门狗
-	 PrintString("****** STC-MCU 2015-05-06,by jiangdou qq:344283973********\r\n");
 	while(1)
 	{
-		//LED = 1;
+		//IR_LED = 1;
 		WDT_CONTR = 0x35;//喂狗
-		if(B_IR_Press)		//有IR键按下
+/**************************************************我是分隔线*************************************************************/
+		//POWER_KEY  POWER_ON	物理按键开关机
+		if(POWER_ON == 0)		//POWER_KEY  被按下  ！！！！！！！！！！！
 		{
 			
-			//IR_LED = !IR_LED;
-			if(IR_code == 0x45)//system shutdown rk3288!!!!		 //11.0592M
+			for(i =0; i < 4; i++)
+				Delay100ms();//延时0.5秒
+			if(POWER_ON == 0)//system shutdown rk3288!!!!		 
+			{	
+				//while(!POWER_ON);//松手检测
+				PWR_EN = !PWR_EN;
+				if(PWR_EN ==1){
+					IR_LED = 1;	   //关掉电源指示LED
+				}else{
+					IR_LED = 0;
+				}
+			}
+		}
+/**************************************************我是分隔线*************************************************************/
+		if(B_IR_Press)		//有IR键按下
+		{
+			//IR_LED = !IR_LED;//for IR_LED
+			IR_LED = 0;	  //有遥控时电源指示LED  闪烁！！！！
+			if(IR_code == 0x45)//IR 遥控开关机 system shutdown rk3288!!!!		 //11.0592M
 			{
 				PWR_EN = !PWR_EN;
-				IR_LED = !IR_LED;
-			
 			}
 			B_IR_Press = 0;		//清除IR键按下标志
+			Delay100ms();
+			if(PWR_EN ==1){
+				IR_LED = 1;		 //关掉电源指示LED
+			}else{
+				IR_LED = 0;
+			}
 		}
-
+/**************************************************我是分隔线*************************************************************/
 //###################### ++for uart
-
 		if (REND)
         {
             REND = 0;
-			
-            
 			if(RBUF == '#'){ //"#" # 表示结束位	   //dou:12345678#
 				r = 0;
 				rx_flag=1; //RX标志
@@ -186,18 +199,15 @@ void main(void)
 				size = r;//接收的数据长度
 			}
         }	
-		
-		if(rx_flag == 1){ //
+/**************************************************我是分隔线*************************************************************/		
+		if(rx_flag == 1){ //串口数据处理
 			rx_flag = 0;
-			//memset(read_buff, "", sizeof(read_buff));
+			
 			for(i =0; i < 16; i++)
 					read_buff[i] = '0';
-			//strcpy(read_buff, buf);
+
 			for(i =0; i < size; i++)
-					read_buff[i] = buf[i];
-			//memset(buf, "", sizeof(buf));
-			//for(i =0; i < 16; i++)
-			//		buf[i] = '0';			
+					read_buff[i] = buf[i];			
 			bb = read_buff;
 
 			pp = strstr(bb, "dou:shut");//关机命令"dou:shut"
@@ -208,9 +218,10 @@ void main(void)
 
 			pp = strstr(bb, "dou:rebo");//reboot命令"dou:rebo#"
 			if(pp != NULL){
-						PWR_EN = 0;	//RK3288关机命令
-						Delay800ms();//延时800毫秒
-						PWR_EN = 1;	//RK3288关机命令
+				PWR_EN = 0;	//RK3288关机命令
+				for(i =0; i < 10; i++)
+					Delay100ms();//延时1秒
+				PWR_EN = 1;	//RK3288关机命令
 						//IR_LED = !IR_LED;
 				}
 			pp = strstr(bb, "dou:");//"dou:"为关键字
@@ -310,6 +321,7 @@ void PrintString(unsigned char code *puts)		//发送一串字符串
     for (; *puts != 0;	puts++)  Uart_Send(*puts); 	//遇到停止符0结束
 }
 
+/*
 
 //###############################
 BYTE Uart_Read(void)
@@ -318,7 +330,7 @@ BYTE Uart_Read(void)
     REND = 0;
     return RBUF;
 }
-
+*/
 //###############################
 void Uart_Send(BYTE txd)
 {
@@ -531,3 +543,4 @@ void UART_INIT()
     TCNT = 0;
     RCNT = 0;
 }
+

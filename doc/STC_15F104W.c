@@ -177,7 +177,7 @@ void main(void)
 			{
 				PWR_EN = !PWR_EN;
 			}
-			B_IR_Press = 0;		//清除IR键按下标志
+			B_IR_Press = 0;		 //清除IR键按下标志
 			Delay100ms();
 			if(PWR_EN ==1){
 				IR_LED = 1;		 //关掉电源指示LED
@@ -224,6 +224,7 @@ void main(void)
 				PWR_EN = 1;	//RK3288关机命令
 						//IR_LED = !IR_LED;
 				}
+/**************************************************我是分隔线*************************************************************/
 			pp = strstr(bb, "dou:");//"dou:"为关键字
 
 			if(pp != NULL){									// send = "dou:3271#"
